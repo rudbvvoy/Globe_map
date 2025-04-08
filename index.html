@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+  
+<head>
+  <meta charset="utf-8">
+  <title>Globe_map</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <!-- Mapbox GL JS CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.10.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.10.0/mapbox-gl.js"></script>
+  <style>
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+    }
+</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<!-- Подключаем Mapbox GL JS -->
+<script>
+  // 🔑 ВСТАВЬ СЮДА СВОЙ Mapbox Access Token
+  mapboxgl.accessToken = 'pk.eyJ1IjoidmFsciIsImEiOiJjam13aThoZnQwcjlpM3BvMmRpdXR6bnJ4In0.SqUbZ30WudlNGKEaNFqqLA';
+
+  const map = new mapboxgl.Map({
+    container: 'map',
+    projection: 'globe',
+    style: 'mapbox://styles/mapbox/light-v11',
+    center: [30, 50], // Центр карты (можно изменить)
+    zoom: 10
+  });
+
+  map.on('load', () => {
+    map.setFog({});
+    
+    const sources = [
+      {
+        id: 'points-day1',
+        url: 'https://rudbvvoy.github.io/Globe_map/ALL%20day1%20points.geojson',
+        type: 'circle',
+        color: '#19a2f7'
+      },
+      {
+        id: 'line-day1',
+        url: 'https://rudbvvoy.github.io/Globe_map/ALL%20day1%20lines.geojson',
+        type: 'line',
+        color: '#19a2f7'
+      },
+      {
+        id: 'line-night1',
+        url: 'https://rudbvvoy.github.io/Globe_map/ALL%20Night1%20lines.geojson',
+        type: 'line',
+        color: '#7007ad'
+      },
+      {
+        id: 'points-night1',
+        url: 'https://rudbvvoy.github.io/Globe_map/ALL%20Night1%20points.geojson',
+        type: 'circle',
+        color: '#7007ad'
+      }
+    ];
+
+    let allBounds = new mapboxgl.LngLatBounds();
+
+    sources.forEach(src => {
+      map.addSource(src.id, {
+        type: 'geojson',
+        data: src.url
+      });
+
+      if (src.type === 'circle') {
+        map.addLayer({
+          id: src.id,
+          type: 'circle',
+          source: src.id,
+          paint: {
+            'circle-radius': 6,
+            'circle-color': src.color,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+
+        // Добавляем попап по description, если есть
+        map.on('click', src.id, (e) => {
+          const coordinates = e.features[0].geometry.coordinates.slice();
+          const description = e.features[0].properties.description || 'Без описания';
+
+          new mapboxgl.Popup()
+            .setLngLat(coordinates)
+            .setHTML(`<strong>${description}</strong>`)
+            .addTo(map);
+        });
+
+        map.on('mouseenter', src.id, () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', src.id, () => map.getCanvas().style.cursor = '');
+
+      } else if (src.type === 'line') {
+        map.addLayer({
+          id: src.id,
+          type: 'line',
+          source: src.id,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': src.color,
+            'line-width': 4
+          }
+        });
+      }
+
+      // Загружаем данные для расчёта границ
+      fetch(src.url)
+        .then(res => res.json())
+        .then(data => {
+          data.features.forEach(f => {
+            if (f.geometry.type === 'Point') {
+              allBounds.extend(f.geometry.coordinates);
+            } else if (f.geometry.type === 'LineString') {
+              f.geometry.coordinates.forEach(coord => allBounds.extend(coord));
+            }
+          });
+          map.fitBounds(allBounds, { padding: 40 });
+        });
+    });
+  });
+</script>
+
+</body>
+</html>
